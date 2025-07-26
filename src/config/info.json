@@ -1,0 +1,32 @@
+{
+  "hosts": [
+    {
+      "address": "example.com",
+      "alias": "example"
+    }
+  ],
+  "ports": [
+    {
+      "value": 22,
+      "alias": "ssh"
+    }
+  ],
+  "usernames": [
+    {
+      "value": "example",
+      "alias": "ex"
+    }
+  ],
+  "passwords": [
+    {
+      "value": "ex_password",
+      "alias": "exp"
+    }
+  ],
+  "keypairs": [
+    {
+      "path": "./example.pem",
+      "alias": "example"
+    }
+  ]
+}
