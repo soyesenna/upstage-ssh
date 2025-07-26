@@ -1,5 +1,5 @@
 import { cli, define } from "gunshi";
-import add from "./commands/add";
+import add from "./commands/add.js";
 
 const subCommands = new Map();
 subCommands.set("add", add);
