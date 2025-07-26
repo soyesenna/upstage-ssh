@@ -1,36 +1,32 @@
 {
-    "hosts": [
-        {
-            "address": "example.com",
-            "alias": "example"
-        }
-    ],
-    "ports": [
-        {
-            "value": 22,
-            "alias": "ssh"
-        }
-    ],
-    "usernames": [
-        {
-            "value": "example",
-            "alias": "ex"
-        }
-    ],
-    "passwords": [
-        {
-            "value": "ex_password",
-            "alias": "exp"
-        }
-    ],
-    "keypairs": [
-        {
-            "path": "./example.pem",
-            "alias": "example"
-        },
-        {
-            "path": "src/secrets/e83fbb32-07c1-4c03-878e-0cafb879f0b1",
-            "alias": "test"
-        }
-    ]
+  "hosts": [
+    {
+      "address": "example.com",
+      "alias": "example"
+    }
+  ],
+  "ports": [
+    {
+      "value": 22,
+      "alias": "ssh"
+    }
+  ],
+  "usernames": [
+    {
+      "value": "example",
+      "alias": "ex"
+    }
+  ],
+  "passwords": [
+    {
+      "value": "ex_password",
+      "alias": "exp"
+    }
+  ],
+  "keypairs": [
+    {
+      "path": "./example.pem",
+      "alias": "example"
+    }
+  ]
 }
