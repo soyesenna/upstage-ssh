@@ -28,5 +28,6 @@
             "path": "./example.pem",
             "alias": "example"
         }
-    ]
+    ],
+    "environments": []
 }

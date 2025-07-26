@@ -119,8 +119,34 @@ def keypair(alias):
     else:
         click.echo(f"Error: Keypair with alias '{alias}' not found.")
 
+@click.command()
+@click.option('--alias', '-l', required=True, help='Environment alias to remove.')
+def environment(alias):
+    """Remove a stored environment by alias."""
+    config = load_config()
+    
+    environments = config.get('environments', [])
+    original_length = len(environments)
+    config['environments'] = [e for e in environments if e['alias'] != alias]
+    
+    if len(config.get('environments', [])) < original_length:
+        save_config(config)
+        click.echo(f"Environment with alias '{alias}' has been removed.")
+    else:
+        click.echo(f"Error: Environment with alias '{alias}' not found.")
+
 remove.add_command(host)
+
 remove.add_command(port)
+
 remove.add_command(username)
+remove.add_command(username, name='user')
+
 remove.add_command(password)
+remove.add_command(password, name='pwd')
+
 remove.add_command(keypair)
+remove.add_command(keypair, name='kp')
+
+remove.add_command(environment)
+remove.add_command(environment, name='env')

@@ -41,6 +41,25 @@ def show_all_info():
     
     keypair_rows = [[k['alias'], k['path']] for k in config.get('keypairs', [])]
     print_table("KEYPAIRS", ["Alias", "Path"], keypair_rows)
+    
+    # Environments
+    env_rows = []
+    for e in config.get('environments', []):
+        components = []
+        if e.get('host_alias'):
+            components.append(f"host:{e['host_alias']}")
+        if e.get('port_alias'):
+            components.append(f"port:{e['port_alias']}")
+        if e.get('username_alias'):
+            components.append(f"user:{e['username_alias']}")
+        if e.get('password_alias'):
+            components.append(f"pwd:****")
+        if e.get('keypair_alias'):
+            components.append(f"key:{e['keypair_alias']}")
+        
+        env_rows.append([e['alias'], ', '.join(components)])
+    
+    print_table("ENVIRONMENTS", ["Alias", "Components"], env_rows)
 
 @click.group(invoke_without_command=True)
 @click.pass_context
@@ -85,8 +104,42 @@ def keypairs():
     keypair_rows = [[k['alias'], k['path']] for k in config.get('keypairs', [])]
     print_table("KEYPAIRS", ["Alias", "Path"], keypair_rows)
 
+@click.command()
+def environments():
+    config = load_config()
+    env_rows = []
+    
+    for e in config.get('environments', []):
+        components = []
+        if e.get('host_alias'):
+            components.append(f"host:{e['host_alias']}")
+        if e.get('port_alias'):
+            components.append(f"port:{e['port_alias']}")
+        if e.get('username_alias'):
+            components.append(f"user:{e['username_alias']}")
+        if e.get('password_alias'):
+            components.append(f"pwd:****")
+        if e.get('keypair_alias'):
+            components.append(f"key:{e['keypair_alias']}")
+        
+        env_rows.append([e['alias'], ', '.join(components)])
+    
+    print_table("ENVIRONMENTS", ["Alias", "Components"], env_rows)
+
 list.add_command(hosts)
+list.add_command(hosts, name='host')
+
 list.add_command(ports)
+list.add_command(ports, name='port')
+
 list.add_command(usernames)
+list.add_command(usernames, name='user')
+
 list.add_command(passwords)
+list.add_command(passwords, name='pwd')
+
 list.add_command(keypairs)
+list.add_command(keypairs, name='kp')
+
+list.add_command(environments)
+list.add_command(environments, name='env')

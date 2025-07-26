@@ -18,7 +18,8 @@ def load_config():
         "ports": [],
         "usernames": [],
         "passwords": [],
-        "keypairs": []
+        "keypairs": [],
+        "environments": []
     }
 
 def save_config(config):
@@ -192,9 +193,128 @@ def keypair(path, alias):
     
     save_config(config)
     click.echo(f"Keypair added with alias '{alias}'.")
+    
+@click.command()
+@click.option('--host-alias', '-h', required=True, help='Host alias to use for the connection.')
+@click.option('--port-alias', '-p', required=False, default='22', help='Port alias to use (default: 22).')
+@click.option('--username-alias', '-u', required=False, help='Username alias to use.')
+@click.option('--password-alias', '-w', required=False, help='Password alias to use.')
+@click.option('--keypair-alias', '-k', required=False, help='Keypair alias to use.')
+@click.option('--alias', '-l', required=True, help='Environment alias for this SSH connection configuration.')
+def environment(host_alias, port_alias, username_alias, password_alias, keypair_alias, alias):
+    config = load_config()
+    
+    environments = config.get('environments', [])
+    for env in environments:
+        if env['alias'] == alias:
+            click.echo(f"Error: Environment with alias '{alias}' already exists.")
+            return
+    
+    host_found = None
+    for h in config.get('hosts', []):
+        if h['alias'] == host_alias:
+            host_found = h
+            break
+    
+    if not host_found:
+        click.echo(f"Error: Host with alias '{host_alias}' not found.")
+        return
+    
+    port_found = None
+    if port_alias:
+        try:
+            port_value = int(port_alias)
+            port_found = {'value': port_value, 'alias': port_alias}
+        except ValueError:
+            for p in config.get('ports', []):
+                if p['alias'] == port_alias:
+                    port_found = p
+                    break
+            
+            if not port_found:
+                click.echo(f"Error: Port with alias '{port_alias}' not found.")
+                return
+    else:
+        port_found = {'value': 22, 'alias': '22'}
+    
+    username_found = None
+    if username_alias:
+        for u in config.get('usernames', []):
+            if u['alias'] == username_alias:
+                username_found = u
+                break
+        
+        if not username_found:
+            click.echo(f"Error: Username with alias '{username_alias}' not found.")
+            return
+    
+    password_found = None
+    if password_alias:
+        for p in config.get('passwords', []):
+            if p['alias'] == password_alias:
+                password_found = p
+                break
+        
+        if not password_found:
+            click.echo(f"Error: Password with alias '{password_alias}' not found.")
+            return
+    
+    keypair_found = None
+    if keypair_alias:
+        for k in config.get('keypairs', []):
+            if k['alias'] == keypair_alias:
+                keypair_found = k
+                break
+        
+        if not keypair_found:
+            click.echo(f"Error: Keypair with alias '{keypair_alias}' not found.")
+            return
+    
+    if not password_found and not keypair_found:
+        click.echo("Error: Either password or keypair must be provided for authentication.")
+        return
+    
+    new_env = {
+        "alias": alias,
+        "host_alias": host_alias,
+        "port_alias": port_alias if port_alias else "22",
+        "username_alias": username_alias if username_alias else None,
+        "password_alias": password_alias if password_alias else None,
+        "keypair_alias": keypair_alias if keypair_alias else None
+    }
+    
+    if 'environments' not in config:
+        config['environments'] = []
+    
+    config['environments'].append(new_env)
+    
+    save_config(config)
+    
+    click.echo(f"Environment '{alias}' created successfully.")
+    click.echo(f"  Host: {host_found['address']} (alias: {host_alias})")
+    click.echo(f"  Port: {port_found['value']} (alias: {port_found['alias']})")
+    
+    if username_found:
+        click.echo(f"  Username: {username_found['value']} (alias: {username_alias})")
+    
+    if password_found:
+        click.echo(f"  Password: **** (alias: {password_alias})")
+    
+    if keypair_found:
+        click.echo(f"  Keypair: {keypair_found['path']} (alias: {keypair_alias})")
 
 add.add_command(host)
+
 add.add_command(port)
+
 add.add_command(username)
+add.add_command(username, name='user')
+
 add.add_command(password)
+add.add_command(password, name='pwd')
+
 add.add_command(keypair)
+add.add_command(keypair, name='kp')
+
+add.add_command(environment)
+add.add_command(environment, name='env')
