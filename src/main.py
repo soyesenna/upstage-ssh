@@ -2,6 +2,7 @@ import click
 from commands.add import add
 from commands.list import list
 from commands.remove import remove
+from commands.connect import connect
 
 @click.group()
 def cli():
@@ -11,6 +12,8 @@ cli.add_command(add)
 cli.add_command(list)
 cli.add_command(remove)
 cli.add_command(remove, name='rm')
+cli.add_command(connect)
+cli.add_command(connect, name='con')
 
 if __name__ == "__main__":
     cli()

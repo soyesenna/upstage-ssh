@@ -3,6 +3,10 @@
         {
             "address": "example.com",
             "alias": "example"
+        },
+        {
+            "address": "158.180.69.211",
+            "alias": "gbmaru-oci"
         }
     ],
     "ports": [
@@ -15,6 +19,10 @@
         {
             "value": "example",
             "alias": "ex"
+        },
+        {
+            "value": "ubuntu",
+            "alias": "ubuntu"
         }
     ],
     "passwords": [
