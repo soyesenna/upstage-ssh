@@ -29,6 +29,7 @@ def save_config(config):
 
 @click.group()
 def change():
+    """Change a stored component by alias."""
     pass
 
 @click.command()
@@ -294,8 +295,9 @@ def keypair(alias, new_path, new_alias):
 @click.option('--username-alias', '-u', help='New username alias.')
 @click.option('--password-alias', '-w', help='New password alias.')
 @click.option('--keypair-alias', '-k', help='New keypair alias.')
-def environment(alias, new_alias, host_alias, port_alias, username_alias, password_alias, keypair_alias):
-    if not any([new_alias, host_alias, port_alias, username_alias, password_alias, keypair_alias]):
+@click.option('--proxy-alias', '-j', help='New proxy environment alias.')
+def environment(alias, new_alias, host_alias, port_alias, username_alias, password_alias, keypair_alias, proxy_alias):
+    if not any([new_alias, host_alias, port_alias, username_alias, password_alias, keypair_alias, proxy_alias]):
         click.echo("Error: Provide at least one option to change.")
         return
     
@@ -351,6 +353,16 @@ def environment(alias, new_alias, host_alias, port_alias, username_alias, passwo
             click.echo(f"Error: Keypair with alias '{keypair_alias}' not found.")
             return
     
+    if proxy_alias:
+        if proxy_alias == alias:
+            click.echo("Error: Environment cannot use itself as proxy jump.")
+            return
+        
+        proxy_envs = [e['alias'] for e in config.get('environments', [])]
+        if proxy_alias not in proxy_envs:
+            click.echo(f"Error: Proxy environment with alias '{proxy_alias}' not found.")
+            return
+    
     click.echo(f"Changing environment '{alias}':")
     
     if new_alias:
@@ -378,6 +390,11 @@ def environment(alias, new_alias, host_alias, port_alias, username_alias, passwo
         old_key = environments[env_found].get('keypair_alias')
         click.echo(f"  Keypair: {old_key if old_key else 'None'} → {keypair_alias}")
         environments[env_found]['keypair_alias'] = keypair_alias
+    
+    if proxy_alias:
+        old_proxy = environments[env_found].get('proxy_alias')
+        click.echo(f"  Proxy: {old_proxy if old_proxy else 'None'} → {proxy_alias}")
+        environments[env_found]['proxy_alias'] = proxy_alias
     
     save_config(config)
     click.echo("Environment updated successfully.")

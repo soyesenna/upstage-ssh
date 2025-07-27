@@ -29,6 +29,7 @@ def save_config(config):
 
 @click.group()
 def add():
+    """Add a new component to the configuration."""
     pass
 
 @click.command()
@@ -200,8 +201,10 @@ def keypair(path, alias):
 @click.option('--username-alias', '-u', required=False, help='Username alias to use.')
 @click.option('--password-alias', '-w', required=False, help='Password alias to use.')
 @click.option('--keypair-alias', '-k', required=False, help='Keypair alias to use.')
+@click.option('--proxy-alias', '-j', required=False, help='Environment alias to use as proxy jump (bastion host).')
 @click.option('--alias', '-l', required=True, help='Environment alias for this SSH connection configuration.')
-def environment(host_alias, port_alias, username_alias, password_alias, keypair_alias, alias):
+def environment(host_alias, port_alias, username_alias, password_alias, keypair_alias, proxy_alias, alias):
+    """Create an SSH environment by combining registered components."""
     config = load_config()
     
     environments = config.get('environments', [])
@@ -270,6 +273,21 @@ def environment(host_alias, port_alias, username_alias, password_alias, keypair_
             click.echo(f"Error: Keypair with alias '{keypair_alias}' not found.")
             return
     
+    proxy_found = None
+    if proxy_alias:
+        for e in config.get('environments', []):
+            if e['alias'] == proxy_alias:
+                proxy_found = e
+                break
+        
+        if not proxy_found:
+            click.echo(f"Error: Proxy environment with alias '{proxy_alias}' not found.")
+            return
+        
+        if proxy_alias == alias:
+            click.echo("Error: Environment cannot use itself as proxy jump.")
+            return
+    
     if not password_found and not keypair_found:
         click.echo("Error: Either password or keypair must be provided for authentication.")
         return
@@ -280,7 +298,8 @@ def environment(host_alias, port_alias, username_alias, password_alias, keypair_
         "port_alias": port_alias if port_alias else "22",
         "username_alias": username_alias if username_alias else None,
         "password_alias": password_alias if password_alias else None,
-        "keypair_alias": keypair_alias if keypair_alias else None
+        "keypair_alias": keypair_alias if keypair_alias else None,
+        "proxy_alias": proxy_alias if proxy_alias else None
     }
     
     if 'environments' not in config:
@@ -302,6 +321,9 @@ def environment(host_alias, port_alias, username_alias, password_alias, keypair_
     
     if keypair_found:
         click.echo(f"  Keypair: {keypair_found['path']} (alias: {keypair_alias})")
+    
+    if proxy_found:
+        click.echo(f"  Proxy Jump: {proxy_alias}")
 
 add.add_command(host)
 

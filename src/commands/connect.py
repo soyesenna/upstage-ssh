@@ -4,19 +4,16 @@ import os
 import subprocess
 import sys
 
-# info.json 파일 경로
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'info.json')
 SECRETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'secrets')
 
 def load_config():
-    """info.json 파일을 로드합니다."""
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {}
 
 def get_component_value(config, component_type, alias):
-    """주어진 alias로 컴포넌트의 실제 값을 가져옵니다."""
     components = config.get(f"{component_type}s", [])
     for comp in components:
         if comp.get('alias') == alias:
@@ -28,6 +25,47 @@ def get_component_value(config, component_type, alias):
                 return comp.get('value')
     return None
 
+def build_proxy_command(proxy_env, config):
+    """Build the ProxyCommand string for SSH."""
+    proxy_host = get_component_value(config, 'host', proxy_env['host_alias'])
+    if not proxy_host:
+        raise ValueError(f"Proxy host with alias '{proxy_env['host_alias']}' not found.")
+    
+    proxy_port = 22
+    if proxy_env.get('port_alias'):
+        port_value = get_component_value(config, 'port', proxy_env['port_alias'])
+        if port_value:
+            proxy_port = port_value
+    
+    proxy_username = ""
+    if proxy_env.get('username_alias'):
+        proxy_username = get_component_value(config, 'username', proxy_env['username_alias'])
+        if not proxy_username:
+            raise ValueError(f"Proxy username with alias '{proxy_env['username_alias']}' not found.")
+    
+    proxy_cmd_parts = ['ssh', '-W', '%h:%p']
+    if proxy_port != 22:
+        proxy_cmd_parts.extend(['-p', str(proxy_port)])
+    
+    if proxy_env.get('keypair_alias'):
+        keypair_path = get_component_value(config, 'keypair', proxy_env['keypair_alias'])
+        if keypair_path:
+            if keypair_path.startswith('src/secrets/'):
+                uuid_part = keypair_path.replace('src/secrets/', '')
+                actual_keypair_path = os.path.join(SECRETS_DIR, uuid_part)
+            else:
+                actual_keypair_path = keypair_path
+            
+            if os.path.exists(actual_keypair_path):
+                proxy_cmd_parts.extend(['-i', actual_keypair_path])
+    
+    if proxy_username:
+        proxy_cmd_parts.append(f"{proxy_username}@{proxy_host}")
+    else:
+        proxy_cmd_parts.append(proxy_host)
+    
+    return ' '.join(proxy_cmd_parts)
+
 @click.command()
 @click.argument('alias', required=True)
 @click.option('--dry-run', is_flag=True, help='Show the SSH command without executing it.')
@@ -35,7 +73,6 @@ def connect(alias, dry_run):
     """Connect to SSH using a stored environment configuration."""
     config = load_config()
     
-    # 환경 찾기
     environments = config.get('environments', [])
     env_found = None
     for env in environments:
@@ -50,47 +87,29 @@ def connect(alias, dry_run):
             click.echo(f"  - {env['alias']}")
         return
     
-    # 호스트 정보 가져오기
     host = get_component_value(config, 'host', env_found['host_alias'])
     if not host:
         click.echo(f"Error: Host with alias '{env_found['host_alias']}' not found.")
         return
     
-    # 포트 정보 가져오기
-    port = 22  # 기본값
+    port = 22
     if env_found.get('port_alias'):
         port_value = get_component_value(config, 'port', env_found['port_alias'])
         if port_value:
             port = port_value
     
-    # SSH 명령어 구성
     ssh_command = ['ssh']
     
-    # 포트 옵션
-    ssh_command.extend(['-p', str(port)])
-    
-    # 사용자명 처리
-    username = ""
-    if env_found.get('username_alias'):
-        username = get_component_value(config, 'username', env_found['username_alias'])
-        if not username:
-            click.echo(f"Error: Username with alias '{env_found['username_alias']}' not found.")
-            return
-    
-    # 키페어 인증 처리
     if env_found.get('keypair_alias'):
         keypair_path = get_component_value(config, 'keypair', env_found['keypair_alias'])
         if not keypair_path:
             click.echo(f"Error: Keypair with alias '{env_found['keypair_alias']}' not found.")
             return
         
-        # 상대 경로를 절대 경로로 변환
         if keypair_path.startswith('src/secrets/'):
-            # UUID 추출
             uuid_part = keypair_path.replace('src/secrets/', '')
             actual_keypair_path = os.path.join(SECRETS_DIR, uuid_part)
         else:
-            # 이전 형식의 경로 처리
             actual_keypair_path = keypair_path
         
         if not os.path.exists(actual_keypair_path):
@@ -99,7 +118,38 @@ def connect(alias, dry_run):
         
         ssh_command.extend(['-i', actual_keypair_path])
     
-    # 호스트 연결 문자열 구성
+    if env_found.get('proxy_alias'):
+        proxy_env = None
+        for env in environments:
+            if env['alias'] == env_found['proxy_alias']:
+                proxy_env = env
+                break
+        
+        if not proxy_env:
+            click.echo(f"Error: Proxy environment with alias '{env_found['proxy_alias']}' not found.")
+            return
+        
+        if proxy_env.get('password_alias') and not proxy_env.get('keypair_alias'):
+            click.echo("Error: Password authentication is not supported for proxy jump.")
+            click.echo("Proxy jump requires key-based authentication.")
+            return
+        
+        try:
+            proxy_command = build_proxy_command(proxy_env, config)
+            ssh_command.extend(['-o', f'ProxyCommand={proxy_command}'])
+        except ValueError as e:
+            click.echo(f"Error: {e}")
+            return
+    
+    ssh_command.extend(['-p', str(port)])
+    
+    username = ""
+    if env_found.get('username_alias'):
+        username = get_component_value(config, 'username', env_found['username_alias'])
+        if not username:
+            click.echo(f"Error: Username with alias '{env_found['username_alias']}' not found.")
+            return
+    
     if username:
         connection_string = f"{username}@{host}"
     else:
@@ -107,7 +157,6 @@ def connect(alias, dry_run):
     
     ssh_command.append(connection_string)
     
-    # 비밀번호 인증 처리
     if env_found.get('password_alias'):
         password = get_component_value(config, 'password', env_found['password_alias'])
         if not password:
@@ -115,23 +164,18 @@ def connect(alias, dry_run):
             return
         
         if not env_found.get('keypair_alias'):
-            # 키페어가 없고 비밀번호만 있는 경우
             click.echo("Warning: Password authentication is less secure than key-based authentication.")
             click.echo("Consider using keypair authentication instead.")
             
-            # sshpass 확인
             try:
                 subprocess.run(['which', 'sshpass'], capture_output=True, check=True)
-                # sshpass가 있으면 사용
                 ssh_command = ['sshpass', '-p', password] + ssh_command
             except subprocess.CalledProcessError:
                 click.echo("\nError: sshpass is not installed. Password authentication requires sshpass.")
                 click.echo("Install it with: brew install hudochenkov/sshpass/sshpass (macOS) or apt-get install sshpass (Linux)")
                 return
     
-    # dry-run 모드
     if dry_run:
-        # 비밀번호는 보안상 표시하지 않음
         display_command = ssh_command.copy()
         if 'sshpass' in display_command:
             pwd_index = display_command.index('-p') + 1
@@ -141,14 +185,15 @@ def connect(alias, dry_run):
         click.echo(" ".join(display_command))
         return
     
-    # SSH 연결 실행
     click.echo(f"Connecting to '{alias}' environment...")
     click.echo(f"Host: {host}:{port}")
     if username:
         click.echo(f"User: {username}")
     
+    if env_found.get('proxy_alias'):
+        click.echo(f"Via proxy: {env_found['proxy_alias']}")
+    
     try:
-        # SSH 명령 실행 (인터랙티브 모드)
         subprocess.run(ssh_command)
     except KeyboardInterrupt:
         click.echo("\nConnection terminated by user.")

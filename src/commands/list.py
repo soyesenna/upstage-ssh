@@ -56,6 +56,8 @@ def show_all_info():
             components.append(f"pwd:****")
         if e.get('keypair_alias'):
             components.append(f"key:{e['keypair_alias']}")
+        if e.get('proxy_alias'):
+            components.append(f"proxy:{e['proxy_alias']}")
         
         env_rows.append([e['alias'], ', '.join(components)])
     
@@ -121,6 +123,8 @@ def environment():
             components.append(f"pwd:****")
         if e.get('keypair_alias'):
             components.append(f"key:{e['keypair_alias']}")
+        if e.get('proxy_alias'):
+            components.append(f"proxy:{e['proxy_alias']}")
         
         env_rows.append([e['alias'], ', '.join(components)])
     

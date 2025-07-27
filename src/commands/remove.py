@@ -24,6 +24,7 @@ def save_config(config):
 
 @click.group()
 def remove():
+    """Remove a stored component by alias."""
     pass
 
 @click.command()
@@ -122,7 +123,6 @@ def keypair(alias):
 @click.command()
 @click.option('--alias', '-l', required=True, help='Environment alias to remove.')
 def environment(alias):
-    """Remove a stored environment by alias."""
     config = load_config()
     
     environments = config.get('environments', [])
