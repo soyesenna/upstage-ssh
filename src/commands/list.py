@@ -69,28 +69,28 @@ def list(ctx):
         show_all_info()
 
 @click.command()
-def hosts():
+def host():
     """List all stored hosts."""
     config = load_config()
     host_rows = [[h['alias'], h['address']] for h in config.get('hosts', [])]
     print_table("HOSTS", ["Alias", "Address"], host_rows)
 
 @click.command()
-def ports():
+def port():
     """List all stored ports."""
     config = load_config()
     port_rows = [[p['alias'], p['value']] for p in config.get('ports', [])]
     print_table("PORTS", ["Alias", "Value"], port_rows)
 
 @click.command()
-def usernames():
+def username():
     """List all stored usernames."""
     config = load_config()
     username_rows = [[u['alias'], u['value']] for u in config.get('usernames', [])]
     print_table("USERNAMES", ["Alias", "Value"], username_rows)
 
 @click.command()
-def passwords():
+def password():
     """List all stored passwords (masked for security)."""
     config = load_config()
     # masking passwords for security
@@ -98,14 +98,14 @@ def passwords():
     print_table("PASSWORDS", ["Alias", "Value (masked)"], password_rows)
 
 @click.command()
-def keypairs():
+def keypair():
     """List all stored keypairs."""
     config = load_config()
     keypair_rows = [[k['alias'], k['path']] for k in config.get('keypairs', [])]
     print_table("KEYPAIRS", ["Alias", "Path"], keypair_rows)
 
 @click.command()
-def environments():
+def environment():
     config = load_config()
     env_rows = []
     
@@ -126,20 +126,20 @@ def environments():
     
     print_table("ENVIRONMENTS", ["Alias", "Components"], env_rows)
 
-list.add_command(hosts)
-list.add_command(hosts, name='host')
+list.add_command(host)
+list.add_command(host, name='host')
 
-list.add_command(ports)
-list.add_command(ports, name='port')
+list.add_command(port)
+list.add_command(port, name='port')
 
-list.add_command(usernames)
-list.add_command(usernames, name='user')
+list.add_command(username)
+list.add_command(username, name='user')
 
-list.add_command(passwords)
-list.add_command(passwords, name='pwd')
+list.add_command(password)
+list.add_command(password, name='pwd')
 
-list.add_command(keypairs)
-list.add_command(keypairs, name='kp')
+list.add_command(keypair)
+list.add_command(keypair, name='kp')
 
-list.add_command(environments)
-list.add_command(environments, name='env')
+list.add_command(environment)
+list.add_command(environment, name='env')
