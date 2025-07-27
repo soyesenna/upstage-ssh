@@ -1,11 +1,11 @@
 import click
-from commands.add import add
-from commands.list import list
-from commands.remove import remove
-from commands.connect import connect
-from commands.find import find
-from commands.change import change
-from commands.init import init
+from src.commands.add import add
+from src.commands.list import list
+from src.commands.remove import remove
+from src.commands.connect import connect
+from src.commands.find import find
+from src.commands.change import change
+from src.commands.init import init
 
 @click.group()
 def cli():

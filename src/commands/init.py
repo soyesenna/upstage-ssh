@@ -77,71 +77,69 @@ def install_git_crypt(os_type):
     
     return success, output
 
-def setup_alias(os_type):
-    """OS별 ussh alias 설정"""
-    click.echo("Setting up ussh alias...")
+def check_or_create_venv():
+    """가상환경 확인 및 생성"""
+    # 가상환경이 활성화되어 있는지 확인
+    virtual_env = os.environ.get('VIRTUAL_ENV')
     
-    # 현재 파일의 절대 경로 찾기
+    if virtual_env:
+        click.echo(f"✓ Using virtual environment: {virtual_env}")
+        return True, virtual_env
+    
+    # 프로젝트 루트 디렉토리
     current_file = os.path.abspath(__file__)
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
-    main_py_path = os.path.join(project_root, 'src', 'main.py')
+    venv_path = os.path.join(project_root, '.venv')
     
-    alias_command = f'alias ussh="uvx --from {project_root} ussh"'
+    # .venv가 있는지 확인
+    if os.path.exists(venv_path):
+        click.echo(f"Found .venv at {venv_path}")
+        click.echo("Please activate the virtual environment first:")
+        
+        os_type = get_os_type()
+        if os_type in ['mac', 'linux']:
+            click.echo(f"  source {venv_path}/bin/activate")
+        elif os_type == 'windows':
+            click.echo(f"  {venv_path}\\Scripts\\activate")
+        
+        return False, "Virtual environment not activated"
     
-    if os_type in ['mac', 'linux']:
-        # 사용 중인 쉘 확인
-        shell = os.environ.get('SHELL', '/bin/bash')
-        
-        if 'zsh' in shell:
-            rc_file = os.path.expanduser('~/.zshrc')
-        elif 'bash' in shell:
-            rc_file = os.path.expanduser('~/.bashrc')
-        else:
-            rc_file = os.path.expanduser('~/.profile')
-        
-        # alias가 이미 존재하는지 확인
-        if os.path.exists(rc_file):
-            with open(rc_file, 'r') as f:
-                content = f.read()
-                if 'alias ussh=' in content:
-                    click.echo(f"ussh alias already exists in {rc_file}")
-                    return True, "Alias already exists"
-        
-        # alias 추가
-        with open(rc_file, 'a') as f:
-            f.write(f'\n# ussh alias\n{alias_command}\n')
-        
-        click.echo(f"Added ussh alias to {rc_file}")
-        click.echo("Please run 'source " + rc_file + "' or restart your terminal to use the alias.")
-        return True, "Alias added successfully"
+    # .venv가 없으면 생성
+    click.echo("Creating virtual environment...")
+    success, output = run_command(['uv', 'venv'])
     
-    elif os_type == 'windows':
-        # Windows PowerShell 프로필에 함수 추가
-        profile_path = os.path.expanduser('~/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1')
-        os.makedirs(os.path.dirname(profile_path), exist_ok=True)
+    if success:
+        click.echo("✓ Virtual environment created successfully")
+        click.echo("Please activate the virtual environment and run init again:")
         
-        function_content = f'''
-# ussh function
-function ussh {{
-    uvx --from {project_root} ussh $args
-}}
-'''
+        os_type = get_os_type()
+        if os_type in ['mac', 'linux']:
+            click.echo(f"  source .venv/bin/activate")
+            click.echo(f"  ussh init")
+        elif os_type == 'windows':
+            click.echo(f"  .venv\\Scripts\\activate")
+            click.echo(f"  ussh init")
         
-        if os.path.exists(profile_path):
-            with open(profile_path, 'r') as f:
-                content = f.read()
-                if 'function ussh' in content:
-                    click.echo(f"ussh function already exists in {profile_path}")
-                    return True, "Function already exists"
-        
-        with open(profile_path, 'a') as f:
-            f.write(function_content)
-        
-        click.echo(f"Added ussh function to {profile_path}")
-        click.echo("Please restart PowerShell to use the ussh command.")
-        return True, "Function added successfully"
+        return False, "Virtual environment created, please activate and run again"
+    else:
+        return False, f"Failed to create virtual environment: {output}"
+
+def install_ussh_editable():
+    """ussh를 editable 모드로 설치"""
+    click.echo("Installing ussh in editable mode...")
     
-    return False, "Unsupported operating system"
+    # 프로젝트 루트 디렉토리로 이동
+    current_file = os.path.abspath(__file__)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+    
+    # uv pip install -e . 실행
+    success, output = run_command(['uv', 'pip', 'install', '-e', project_root])
+    
+    if success:
+        click.echo("✓ ussh installed successfully in editable mode")
+        return True, "Installed successfully"
+    else:
+        return False, output
 
 def check_git_remote():
     """Git remote origin 확인"""
@@ -154,8 +152,8 @@ def check_git_remote():
 @click.option('--skip-install', is_flag=True, help='Skip package installation')
 @click.option('--skip-git-crypt', is_flag=True, help='Skip git-crypt initialization')
 @click.option('--skip-push', is_flag=True, help='Skip git push')
-@click.option('--skip-alias', is_flag=True, help='Skip alias setup')
-def init(skip_install, skip_git_crypt, skip_push, skip_alias):
+@click.option('--skip-ussh-install', is_flag=True, help='Skip ussh editable installation')
+def init(skip_install, skip_git_crypt, skip_push, skip_ussh_install):
     """Initialize ussh environment with required dependencies and configurations."""
     
     os_type = get_os_type()
@@ -215,91 +213,23 @@ def init(skip_install, skip_git_crypt, skip_push, skip_alias):
         else:
             click.echo("No git remote origin found. Skipping push.")
     
-    # 4. ussh alias 설정
-    if not skip_alias:
-        success, output = setup_alias(os_type)
+    # 4. 가상환경 확인 및 ussh 설치 (editable mode)
+    if not skip_ussh_install:
+        # 가상환경 확인
+        venv_active, venv_info = check_or_create_venv()
+        
+        if not venv_active:
+            click.echo(f"\n{venv_info}")
+            return
+        
+        # ussh 설치
+        success, output = install_ussh_editable()
         if success:
-            click.echo("✓ ussh alias configured successfully")
-            
-            # macOS/Linux에서 실행 가능한 ussh 스크립트 생성
-            if os_type in ['mac', 'linux']:
-                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                
-                # /usr/local/bin에 ussh 실행 파일 생성 (sudo 권한 필요)
-                ussh_script_content = f'''#!/bin/sh
-# ussh launcher script
-exec uvx --from {project_root} ussh "$@"
-'''
-                
-                # 먼저 ~/.local/bin에 시도 (사용자 권한으로 가능)
-                local_bin = os.path.expanduser('~/.local/bin')
-                os.makedirs(local_bin, exist_ok=True)
-                local_ussh_path = os.path.join(local_bin, 'ussh')
-                
-                try:
-                    with open(local_ussh_path, 'w') as f:
-                        f.write(ussh_script_content)
-                    os.chmod(local_ussh_path, 0o755)
-                    
-                    # PATH에 ~/.local/bin이 있는지 확인
-                    path_env = os.environ.get('PATH', '')
-                    if local_bin not in path_env:
-                        shell = os.environ.get('SHELL', '/bin/bash')
-                        if 'zsh' in shell:
-                            rc_file = os.path.expanduser('~/.zshrc')
-                        elif 'bash' in shell:
-                            rc_file = os.path.expanduser('~/.bashrc')
-                        else:
-                            rc_file = os.path.expanduser('~/.profile')
-                        
-                        # PATH에 추가
-                        with open(rc_file, 'r') as f:
-                            content = f.read()
-                        
-                        if f'export PATH="$HOME/.local/bin:$PATH"' not in content:
-                            with open(rc_file, 'a') as f:
-                                f.write(f'\n# Add ~/.local/bin to PATH\nexport PATH="$HOME/.local/bin:$PATH"\n')
-                            
-                            click.echo(f"✓ Added ~/.local/bin to PATH in {rc_file}")
-                            click.echo(f"\n✅ ussh is now installed!")
-                            click.echo(f"\nTo use ussh immediately, run:")
-                            click.echo(f"  export PATH=\"$HOME/.local/bin:$PATH\"")
-                            click.echo(f"  ussh --help")
-                        else:
-                            click.echo(f"\n✅ ussh is now available as a command!")
-                            click.echo(f"You can now use: ussh --help")
-                    else:
-                        click.echo(f"\n✅ ussh is now available as a command!")
-                        click.echo(f"You can now use: ussh --help")
-                    
-                except Exception as e:
-                    click.echo(f"Failed to create ussh script: {e}")
-                    click.echo(f"\nYou can still use: uvx --from {project_root} ussh")
-                
-            elif os_type == 'windows':
-                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                
-                # Windows에서는 .cmd 파일 생성
-                local_bin = os.path.expanduser('~/AppData/Local/Microsoft/WindowsApps')
-                os.makedirs(local_bin, exist_ok=True)
-                
-                ussh_cmd_path = os.path.join(local_bin, 'ussh.cmd')
-                ussh_cmd_content = f'''@echo off
-uvx --from "{project_root}" ussh %*
-'''
-                
-                try:
-                    with open(ussh_cmd_path, 'w') as f:
-                        f.write(ussh_cmd_content)
-                    
-                    click.echo(f"\n✅ ussh.cmd created in {local_bin}")
-                    click.echo("\nussh is now available as a command!")
-                    click.echo("You can now use: ussh --help")
-                    
-                except Exception as e:
-                    click.echo(f"Failed to create ussh.cmd: {e}")
-                    click.echo("\n✅ ussh function is available after restarting PowerShell.")
+            click.echo("\n✅ ussh is now available as a command!")
+            click.echo("You can now use: ussh --help")
         else:
-            click.echo(f"✗ Failed to setup alias: {output}")
+            click.echo(f"✗ Failed to install ussh: {output}")
+            if not click.confirm("Continue anyway?"):
+                return
     
     click.echo("\n✅ Initialization completed!")
