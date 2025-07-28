@@ -153,3 +153,6 @@ ehthumbs.db
 # uv
 .uv/
 uv.lock
+
+install_test.sh
+publish_test.sh

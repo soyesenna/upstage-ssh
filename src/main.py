@@ -5,13 +5,11 @@ from src.commands.remove import remove
 from src.commands.connect import connect
 from src.commands.find import find
 from src.commands.change import change
-from src.commands.init import init
 
 @click.group()
 def cli():
     pass
 
-cli.add_command(init)
 cli.add_command(add)
 cli.add_command(list)
 cli.add_command(remove)
