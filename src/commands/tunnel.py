@@ -153,20 +153,24 @@ def manage():
         host_match = re.search(r'(\S+)$', cmd_parts)
         target = host_match.group(1) if host_match else "N/A"
         
+        target_alias = "N/A"
+        for h in config.get('hosts', []):
+            if h['address'] == target:
+                target_alias = h['alias']
+                break
+        
         tunnels.append([
-            len(tunnels) + 1,  # Number
+            len(tunnels) + 1,
             pid,
             tunnel_type,
             local_port,
             remote_port,
             host_alias if host_alias != "N/A" else host_address,
-            target
+            target_alias if target_alias != "N/A" else target
         ])
     
-    # Create table headers
-    headers = ["Number", "PID", "Type", "Local Port", "Remote Port", "Host (alias)", "Target"]
+    headers = ["Number", "PID", "Type", "Local Port", "Remote Port", "Host (alias)", "Target (alias)"]
     
-    # Display table using tabulate
     click.echo("\nActive SSH Tunnels:")
     click.echo(tabulate(tunnels, headers=headers, tablefmt="grid"))
     click.echo(f"\nTotal active tunnels: {len(tunnels)}\n")
@@ -176,11 +180,11 @@ def manage():
         click.echo("No tunnels killed.")
         return
     elif selection.lower() == 'all':
-        to_kill = [tunnel[1] for tunnel in tunnels]  # PID is at index 1
+        to_kill = [tunnel[1] for tunnel in tunnels] 
     else:
         try:
             indices = [int(i.strip()) for i in selection.split(',')]
-            to_kill = [tunnels[idx-1][1] for idx in indices if 1 <= idx <= len(tunnels)]  # PID is at index 1
+            to_kill = [tunnels[idx-1][1] for idx in indices if 1 <= idx <= len(tunnels)] 
         except (ValueError, IndexError):
             click.echo("Invalid selection.")
             return
