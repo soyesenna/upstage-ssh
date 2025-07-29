@@ -1,7 +1,7 @@
 [project]
 name = "ussh"
-version = "0.1.6"
-description = ""
+version = "0.1.7"
+description = "Command Line Tool to use ssh simply"
 readme = "README.md"
 requires-python = ">=3.9.1"
 dependencies = [

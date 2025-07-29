@@ -5,6 +5,7 @@ from src.commands.remove import remove
 from src.commands.connect import connect
 from src.commands.find import find
 from src.commands.change import change
+from src.commands.update import update
 
 @click.group()
 def cli():
@@ -18,6 +19,7 @@ cli.add_command(connect)
 cli.add_command(connect, name='con')
 cli.add_command(find)
 cli.add_command(change)
+cli.add_command(update)
 
 if __name__ == "__main__":
     cli()
