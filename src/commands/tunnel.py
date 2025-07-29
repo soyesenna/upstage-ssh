@@ -96,5 +96,50 @@ def remote(env, remote_port, local_host, local_port):
     except subprocess.CalledProcessError as e:
         click.echo(f"Error establishing tunnel: {e}")
 
+@tunnel.command()
+def manage():
+    """List current tunnels and allow killing them."""
+    import re
+    try:
+        ps_output = subprocess.check_output(['ps', 'aux']).decode('utf-8')
+    except subprocess.CalledProcessError as e:
+        click.echo(f"Error getting process list: {e}")
+        return
+
+    tunnel_lines = [line for line in ps_output.splitlines() if 'ssh' in line.lower() and ('-l' in line or '-r' in line) and '-n' in line and '-f' in line]
+
+    if not tunnel_lines:
+        click.echo("No active SSH tunnels found.")
+        return
+
+    tunnels = []
+    for idx, line in enumerate(tunnel_lines, 1):
+        parts = re.split(r'\s+', line)
+        pid = parts[1]
+        command = ' '.join(parts[10:])  # Command starts after time
+        click.echo(f"{idx}: PID {pid} - {command}")
+        tunnels.append(pid)
+
+    selection = click.prompt("Enter the number(s) of the tunnel(s) to kill (comma-separated, or 'all' or 'none')", default='none')
+    if selection.lower() == 'none':
+        click.echo("No tunnels killed.")
+        return
+    elif selection.lower() == 'all':
+        to_kill = tunnels
+    else:
+        try:
+            indices = [int(i.strip()) for i in selection.split(',')]
+            to_kill = [tunnels[idx-1] for idx in indices if 1 <= idx <= len(tunnels)]
+        except (ValueError, IndexError):
+            click.echo("Invalid selection.")
+            return
+
+    for pid in to_kill:
+        try:
+            subprocess.run(['kill', pid], check=True)
+            click.echo(f"Killed tunnel with PID {pid}")
+        except subprocess.CalledProcessError as e:
+            click.echo(f"Error killing PID {pid}: {e}")
+
 tunnel.add_command(local)
 tunnel.add_command(remote)
