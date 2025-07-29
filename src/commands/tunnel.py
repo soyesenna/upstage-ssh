@@ -95,7 +95,7 @@ def remote(env, remote_port, local_host, local_port):
     except subprocess.CalledProcessError as e:
         click.echo(f"Error establishing tunnel: {e}")
 
-@tunnel.command()
+@click.command()
 def manage():
     """List current tunnels and allow killing them."""
     import re
@@ -196,3 +196,4 @@ def manage():
 
 tunnel.add_command(local)
 tunnel.add_command(remote)
+tunnel.add_command(manage)
