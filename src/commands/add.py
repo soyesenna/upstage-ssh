@@ -1,31 +1,10 @@
 import click
-import json
 import os
 import uuid
 import shutil
 import tempfile
 import subprocess
-
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'info.json')
-SECRETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'secrets')
-
-def load_config():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "hosts": [],
-        "ports": [],
-        "usernames": [],
-        "passwords": [],
-        "keypairs": [],
-        "environments": []
-    }
-
-def save_config(config):
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
-        json.dump(config, f, indent=4, ensure_ascii=False)
+from src.util.config_util import SECRETS_DIR, load_config, save_config
 
 @click.group()
 def add():

@@ -1,21 +1,6 @@
 import click
-import json
-import os
 from tabulate import tabulate
-
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'info.json')
-
-def load_config():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "hosts": [],
-        "ports": [],
-        "usernames": [],
-        "passwords": [],
-        "keypairs": []
-    }
+from src.util.config_util import load_config
 
 def search_in_items(items, query, item_type):
     results = []
@@ -133,10 +118,8 @@ def environment(query):
     print_search_results(results, query)
 
 find.add_command(host)
-find.add_command(host, name='host')
 
 find.add_command(port)
-find.add_command(port, name='port')
 
 find.add_command(username)
 find.add_command(username, name='user')

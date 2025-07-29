@@ -1,16 +1,8 @@
 import click
-import json
 import os
 import subprocess
+from src.util.config_util import SECRETS_DIR, load_config
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'info.json')
-SECRETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'secrets')
-
-def load_config():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
 
 def get_component_value(config, component_type, alias):
     components = config.get(f"{component_type}s", [])

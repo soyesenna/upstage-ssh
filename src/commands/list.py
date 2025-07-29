@@ -1,21 +1,6 @@
 import click
-import json
-import os
 from tabulate import tabulate
-
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'info.json')
-
-def load_config():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "hosts": [],
-        "ports": [],
-        "usernames": [],
-        "passwords": [],
-        "keypairs": []
-    }
+from src.util.config_util import load_config
 
 def print_table(title, headers, rows):
     if rows:
@@ -131,10 +116,8 @@ def environment():
     print_table("ENVIRONMENTS", ["Alias", "Components"], env_rows)
 
 list.add_command(host)
-list.add_command(host, name='host')
 
 list.add_command(port)
-list.add_command(port, name='port')
 
 list.add_command(username)
 list.add_command(username, name='user')
