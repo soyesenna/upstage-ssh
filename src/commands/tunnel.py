@@ -11,7 +11,6 @@ def tunnel():
 
 def build_ssh_command(env_config: dict, config: dict, forwarding: Optional[str] = None) -> list:
     """Build the SSH command list based on environment config."""
-    # Find components
     host = next(h for h in config['hosts'] if h['alias'] == env_config['host_alias'])['address']
     port = next((p for p in config.get('ports', []) if p['alias'] == env_config['port_alias']), {'value': 22})['value']
     username = next((u['value'] for u in config.get('usernames', []) if u['alias'] == env_config['username_alias']), None)
@@ -22,7 +21,7 @@ def build_ssh_command(env_config: dict, config: dict, forwarding: Optional[str] 
     ssh_cmd = ['ssh']
 
     if forwarding:
-        ssh_cmd.extend(['-N', '-f'])  # Background and no remote command for tunneling
+        ssh_cmd.extend(['-N', '-f'])
         ssh_cmd.append(forwarding)
 
     if username:
@@ -40,8 +39,8 @@ def build_ssh_command(env_config: dict, config: dict, forwarding: Optional[str] 
 
     if proxy_alias:
         proxy_env = next(e for e in config['environments'] if e['alias'] == proxy_alias)
-        proxy_cmd = build_ssh_command(proxy_env, config)[1:]  # Exclude 'ssh' for -J
-        proxy_str = ' '.join(proxy_cmd[:-1]) + proxy_cmd[-1]  # Rough approximation for -J
+        proxy_cmd = build_ssh_command(proxy_env, config)[1:]
+        proxy_str = ' '.join(proxy_cmd[:-1]) + proxy_cmd[-1]
         ssh_cmd.extend(['-J', proxy_str])
 
     ssh_cmd.append(host)
@@ -100,36 +99,90 @@ def remote(env, remote_port, local_host, local_port):
 def manage():
     """List current tunnels and allow killing them."""
     import re
+    
+    config = load_config()
+    
     try:
         ps_output = subprocess.check_output(['ps', 'aux']).decode('utf-8')
     except subprocess.CalledProcessError as e:
         click.echo(f"Error getting process list: {e}")
         return
 
-    tunnel_lines = [line for line in ps_output.splitlines() if 'ssh' in line.lower() and ('-l' in line or '-r' in line) and '-n' in line and '-f' in line]
+    tunnel_lines = [line for line in ps_output.splitlines() if 'ssh' in line.lower() and ('-L' in line or '-R' in line) and '-N' in line]
 
     if not tunnel_lines:
         click.echo("No active SSH tunnels found.")
         return
 
     tunnels = []
-    for idx, line in enumerate(tunnel_lines, 1):
+    for line in tunnel_lines:
         parts = re.split(r'\s+', line)
         pid = parts[1]
-        command = ' '.join(parts[10:])  # Command starts after time
-        click.echo(f"{idx}: PID {pid} - {command}")
-        tunnels.append(pid)
+        cmd_parts = ' '.join(parts[10:])
+        
+        tunnel_type = "Local" if "-L" in cmd_parts else "Remote" if "-R" in cmd_parts else "Unknown"
+        
+        forwarding_match = re.search(r'-[LR]\s+(\S+)', cmd_parts)
+        forwarding = forwarding_match.group(1) if forwarding_match else "N/A"
+        
+        local_port = "N/A"
+        remote_port = "N/A" 
+        host_address = "N/A"
+        host_alias = "N/A"
+        
+        if forwarding != "N/A":
+            if tunnel_type == "Local":
+                parts = forwarding.split(':')
+                if len(parts) == 3:
+                    local_port = parts[0]
+                    host_address = parts[1]
+                    remote_port = parts[2]
+            elif tunnel_type == "Remote":
+                parts = forwarding.split(':')
+                if len(parts) == 3:
+                    remote_port = parts[0]
+                    host_address = parts[1]
+                    local_port = parts[2]
+        
+        for h in config.get('hosts', []):
+            if h['address'] == host_address:
+                host_alias = h['alias']
+                break
+        
+        host_match = re.search(r'(\S+)$', cmd_parts)
+        target = host_match.group(1) if host_match else "N/A"
+        
+        tunnels.append({
+            'pid': pid,
+            'type': tunnel_type,
+            'local_port': local_port,
+            'remote_port': remote_port,
+            'host': f"{host_alias}" if host_alias != "N/A" else host_address,
+            'target': target,
+            'command': cmd_parts
+        })
+
+    click.echo("\n┌────────┬──────────┬─────────┬────────────┬─────────────┬──────────────────────────────────┬────────────────────┐")
+    click.echo("│ Number │   PID    │  Type   │ Local Port │ Remote Port │         Host (alias)             │      Target        │")
+    click.echo("├────────┼──────────┼─────────┼────────────┼─────────────┼──────────────────────────────────┼────────────────────┤")
+    
+    for idx, tunnel in enumerate(tunnels, 1):
+        click.echo(f"│ {idx:^6} │ {tunnel['pid']:^8} │ {tunnel['type']:^7} │ {tunnel['local_port']:^10} │ {tunnel['remote_port']:^11} │ {tunnel['host']:^32} │ {tunnel['target']:^18} │")
+    
+    click.echo("└────────┴──────────┴─────────┴────────────┴─────────────┴──────────────────────────────────┴────────────────────┘")
+    
+    click.echo(f"\nTotal active tunnels: {len(tunnels)}\n")
 
     selection = click.prompt("Enter the number(s) of the tunnel(s) to kill (comma-separated, or 'all' or 'none')", default='none')
     if selection.lower() == 'none':
         click.echo("No tunnels killed.")
         return
     elif selection.lower() == 'all':
-        to_kill = tunnels
+        to_kill = [t['pid'] for t in tunnels]
     else:
         try:
             indices = [int(i.strip()) for i in selection.split(',')]
-            to_kill = [tunnels[idx-1] for idx in indices if 1 <= idx <= len(tunnels)]
+            to_kill = [tunnels[idx-1]['pid'] for idx in indices if 1 <= idx <= len(tunnels)]
         except (ValueError, IndexError):
             click.echo("Invalid selection.")
             return
@@ -137,9 +190,9 @@ def manage():
     for pid in to_kill:
         try:
             subprocess.run(['kill', pid], check=True)
-            click.echo(f"Killed tunnel with PID {pid}")
+            click.echo(f"✓ Killed tunnel with PID {pid}")
         except subprocess.CalledProcessError as e:
-            click.echo(f"Error killing PID {pid}: {e}")
+            click.echo(f"✗ Error killing PID {pid}: {e}")
 
 tunnel.add_command(local)
 tunnel.add_command(remote)
