@@ -6,6 +6,7 @@ from src.commands.connect import connect
 from src.commands.find import find
 from src.commands.change import change
 from src.commands.update import update
+from src.commands.tunnel import tunnel
 
 @click.group()
 def cli():
@@ -20,6 +21,7 @@ cli.add_command(connect, name='con')
 cli.add_command(find)
 cli.add_command(change)
 cli.add_command(update)
+cli.add_command(tunnel)
 
 if __name__ == "__main__":
     cli()
