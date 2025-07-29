@@ -3,6 +3,7 @@ import subprocess
 from typing import Optional
 from src.util.config_util import load_config, SECRETS_DIR
 import os
+from tabulate import tabulate
 
 @click.group()
 def tunnel():
@@ -152,25 +153,22 @@ def manage():
         host_match = re.search(r'(\S+)$', cmd_parts)
         target = host_match.group(1) if host_match else "N/A"
         
-        tunnels.append({
-            'pid': pid,
-            'type': tunnel_type,
-            'local_port': local_port,
-            'remote_port': remote_port,
-            'host': f"{host_alias}" if host_alias != "N/A" else host_address,
-            'target': target,
-            'command': cmd_parts
-        })
-
-    click.echo("\n┌────────┬──────────┬─────────┬────────────┬─────────────┬──────────────────────────────────┬────────────────────┐")
-    click.echo("│ Number │   PID    │  Type   │ Local Port │ Remote Port │         Host (alias)             │      Target        │")
-    click.echo("├────────┼──────────┼─────────┼────────────┼─────────────┼──────────────────────────────────┼────────────────────┤")
+        tunnels.append([
+            len(tunnels) + 1,  # Number
+            pid,
+            tunnel_type,
+            local_port,
+            remote_port,
+            host_alias if host_alias != "N/A" else host_address,
+            target
+        ])
     
-    for idx, tunnel in enumerate(tunnels, 1):
-        click.echo(f"│ {idx:^6} │ {tunnel['pid']:^8} │ {tunnel['type']:^7} │ {tunnel['local_port']:^10} │ {tunnel['remote_port']:^11} │ {tunnel['host']:^32} │ {tunnel['target']:^18} │")
+    # Create table headers
+    headers = ["Number", "PID", "Type", "Local Port", "Remote Port", "Host (alias)", "Target"]
     
-    click.echo("└────────┴──────────┴─────────┴────────────┴─────────────┴──────────────────────────────────┴────────────────────┘")
-    
+    # Display table using tabulate
+    click.echo("\nActive SSH Tunnels:")
+    click.echo(tabulate(tunnels, headers=headers, tablefmt="grid"))
     click.echo(f"\nTotal active tunnels: {len(tunnels)}\n")
 
     selection = click.prompt("Enter the number(s) of the tunnel(s) to kill (comma-separated, or 'all' or 'none')", default='none')
@@ -178,11 +176,11 @@ def manage():
         click.echo("No tunnels killed.")
         return
     elif selection.lower() == 'all':
-        to_kill = [t['pid'] for t in tunnels]
+        to_kill = [tunnel[1] for tunnel in tunnels]  # PID is at index 1
     else:
         try:
             indices = [int(i.strip()) for i in selection.split(',')]
-            to_kill = [tunnels[idx-1]['pid'] for idx in indices if 1 <= idx <= len(tunnels)]
+            to_kill = [tunnels[idx-1][1] for idx in indices if 1 <= idx <= len(tunnels)]  # PID is at index 1
         except (ValueError, IndexError):
             click.echo("Invalid selection.")
             return
